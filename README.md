@@ -1,2 +1,4 @@
 # JpaCriteriaHelper
-Helper to class to build SELECT querys with JPA Criteria Builder
+Helper class to build SELECT querys with JPA Criteria Builder.
+
+See examples at JpaCriteriaHelperExamples class.
