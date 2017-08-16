@@ -1,4 +1,4 @@
-package org.jpahelper;
+package org.jpahelper.examples;
 
 import javax.persistence.Entity;
 import javax.persistence.Id;

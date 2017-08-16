@@ -1,9 +1,10 @@
-package org.jpahelper;
+package org.jpahelper.examples;
 import java.util.List;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
+import org.jpahelper.JpaCriteriaHelper;
 import org.jpahelper.JpaCriteriaHelper.ComparatorOperator;
 
 public class JpaCriteriaHelperExamples {
