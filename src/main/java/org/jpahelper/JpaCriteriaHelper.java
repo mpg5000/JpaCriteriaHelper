@@ -11,8 +11,6 @@ import javax.persistence.criteria.Order;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 
-import org.jpahelper.JpaCriteriaHelper.ComparatorOperator;
-
 /**
  * Classe utilitária para facilitação das chamadas mais simples à JPA utilizando CriteriaBuilder.
  * @author mauricio.guzinski
