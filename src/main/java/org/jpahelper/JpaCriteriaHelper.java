@@ -1,19 +1,27 @@
 package org.jpahelper;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.CriteriaDelete;
 import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.From;
 import javax.persistence.criteria.Order;
+import javax.persistence.criteria.Path;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
+import javax.persistence.metamodel.ListAttribute;
 
 /**
  * Classe utilitária para facilitação das chamadas mais simples à JPA utilizando CriteriaBuilder.
- * @author mauricio.guzinski
+ * @author mauricio.guzinski e pietro.biasuz
  *
  */
 public class JpaCriteriaHelper<T> {
@@ -38,13 +46,29 @@ public class JpaCriteriaHelper<T> {
 
     private Class<T> entityClass;
 
+    private List<String> directFetches;
+
+    private List<ListFetch<?>> listFetches;
+    
+    private Map<Path<?>, From<?, ?>> joinsMap = new HashMap<>();
+
+    private class ListFetch<E> {
+        private String attribute;
+        private Class<E> clazz;
+
+        public ListFetch(String attribute, Class<E> clazz) {
+            this.attribute = attribute;
+            this.clazz = clazz;
+        }
+    }
+
     /**
      * Define nome entradas da cláusula WHERE
      *
      */
     private class WhereEntry {
 
-        private String fieldName;
+        private List<String> fieldNames;
 
         private ComparatorOperator comparatorOperator;
 
@@ -54,12 +78,12 @@ public class JpaCriteriaHelper<T> {
 
         private LogicalOperator logicalOperator;
 
-        public WhereEntry(String fieldName
+        public WhereEntry(List<String> fieldNames
                 ,ComparatorOperator comparatorOperator
                 ,Object valueIni
                 ,Object valueEnd
                 ,LogicalOperator logicalOperator) {
-            this.fieldName          = fieldName;
+            this.fieldNames          = fieldNames;
             this.comparatorOperator = comparatorOperator;
             this.valueIni           = valueIni;
             this.valueEnd           = valueEnd;
@@ -73,12 +97,12 @@ public class JpaCriteriaHelper<T> {
      */
     private class OrderEntry {
 
-        private String fieldName;
+        private List<String> fieldNames;
 
         private OrderDirection order;
 
-        public OrderEntry(String fieldName, OrderDirection order) {
-            this.fieldName = fieldName;
+        public OrderEntry(List<String> fieldNames, OrderDirection order) {
+            this.fieldNames = fieldNames;
             this.order = order;
         }
     }
@@ -87,6 +111,8 @@ public class JpaCriteriaHelper<T> {
         this.em               = em;
         this.entityClass      = entityClass;
         this.criteriaBuilder  = em.getCriteriaBuilder();
+        this.directFetches = new ArrayList<>();
+        this.listFetches = new ArrayList<>();
     }
 
     /**
@@ -110,6 +136,18 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
+     * Inclui uma cláusula WHERE com operador {@link ComparatorOperator.EQUAL} implícito
+     * @param fieldNames fieldName Nome da propriedade
+     * @param value Valor
+     * @return objeto de consulta
+     */
+    public JpaCriteriaHelper<T> where( List<String> fieldNames, Object value ) {
+        return where(fieldNames, ComparatorOperator.EQUAL, value);
+    }
+
+
+
+    /**
      * Inclui uma cláusula WHERE
      * @param fieldName Nome da propriedade
      * @param comparator Comparador <b>(Para {@link ComparatorOperator.GREATER_THAN} e {@link ComparatorOperator.GREATER_THAN}
@@ -118,7 +156,12 @@ public class JpaCriteriaHelper<T> {
      * @return objeto de consulta
      */
     public JpaCriteriaHelper<T> where( String fieldName, ComparatorOperator comparator, Object value ) {
-        addTowhere(fieldName, comparator, value, null, null);
+        addTowhere(Arrays.asList(fieldName), comparator, value, null, null);
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> where( List<String> fieldNames, ComparatorOperator comparator, Object value ) {
+        addTowhere(fieldNames, comparator, value, null, null);
         return this;
     }
 
@@ -132,7 +175,7 @@ public class JpaCriteriaHelper<T> {
      */
     @SuppressWarnings({ "rawtypes" }) // TODO: tentar resolver este warning
     public JpaCriteriaHelper<T> where( String fieldName, ComparatorOperator comparator, Comparable valueIni, Comparable valueEnd ) {
-        addTowhere(fieldName, comparator, valueIni, valueEnd, null);
+        addTowhere(Arrays.asList(fieldName), comparator, valueIni, valueEnd, null);
         return this;
     }
 
@@ -143,7 +186,12 @@ public class JpaCriteriaHelper<T> {
      * @return objeto de consulta
      */
     public JpaCriteriaHelper<T> and( String fieldName, Object value ) {
-        addTowhere(fieldName, ComparatorOperator.EQUAL, value, null, LogicalOperator.AND);
+        addTowhere(Arrays.asList(fieldName), ComparatorOperator.EQUAL, value, null, LogicalOperator.AND);
+        return this;
+    }
+    
+    public JpaCriteriaHelper<T> and( List<String> fieldNames, Object value ) {
+        addTowhere(fieldNames, ComparatorOperator.EQUAL, value, null, LogicalOperator.AND);
         return this;
     }
 
@@ -157,7 +205,7 @@ public class JpaCriteriaHelper<T> {
      */
     @SuppressWarnings({ "rawtypes" }) // TODO: tentar resolver este warning
     public JpaCriteriaHelper<T> and( String fieldName, ComparatorOperator comparator, Comparable valueIni, Comparable valueEnd ) {
-        wheres.add( new WhereEntry(fieldName, comparator, valueIni, valueEnd, LogicalOperator.AND) );
+        wheres.add( new WhereEntry(Arrays.asList(fieldName), comparator, valueIni, valueEnd, LogicalOperator.AND) );
         return this;
     }
 
@@ -170,7 +218,7 @@ public class JpaCriteriaHelper<T> {
      * @return objeto de consulta
      */
     public JpaCriteriaHelper<T> and( String fieldName, ComparatorOperator comparator, Object value ) {
-        wheres.add( new WhereEntry(fieldName, comparator, value, null, LogicalOperator.AND) );
+        wheres.add( new WhereEntry(Arrays.asList(fieldName), comparator, value, null, LogicalOperator.AND) );
         return this;
     }
 
@@ -181,7 +229,7 @@ public class JpaCriteriaHelper<T> {
      * @return objeto de consulta
      */
     public JpaCriteriaHelper<T> or( String fieldName, Object value ) {
-        addTowhere(fieldName, ComparatorOperator.EQUAL, value, null, LogicalOperator.OR);
+        addTowhere(Arrays.asList(fieldName), ComparatorOperator.EQUAL, value, null, LogicalOperator.OR);
         return this;
     }
 
@@ -195,7 +243,7 @@ public class JpaCriteriaHelper<T> {
      */
     @SuppressWarnings({ "rawtypes" }) // TODO: tentar resolver este warning
     public JpaCriteriaHelper<T> or( String fieldName, ComparatorOperator comparator, Comparable valueIni, Comparable valueEnd ) {
-        wheres.add( new WhereEntry(fieldName, comparator, valueIni, valueEnd, LogicalOperator.OR) );
+        wheres.add( new WhereEntry(Arrays.asList(fieldName), comparator, valueIni, valueEnd, LogicalOperator.OR) );
         return this;
     }
 
@@ -208,17 +256,27 @@ public class JpaCriteriaHelper<T> {
      * @return objeto de consulta
      */
     public JpaCriteriaHelper<T> or( String fieldName, ComparatorOperator comparator, Object value ) {
-        wheres.add( new WhereEntry(fieldName, comparator, value, null, LogicalOperator.OR) );
+        wheres.add( new WhereEntry(Arrays.asList(fieldName), comparator, value, null, LogicalOperator.OR) );
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> or( List<String> fieldNames, ComparatorOperator comparator, Object value ) {
+        wheres.add( new WhereEntry(fieldNames, comparator, value, null, LogicalOperator.OR) );
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> or( List<String> fieldNames, Object value ) {
+        wheres.add( new WhereEntry(fieldNames, ComparatorOperator.EQUAL, value, null, LogicalOperator.OR) );
         return this;
     }
 
     /**
      * Inclui cláusula ORDER BY
-     * @param fieldName Nome da propriedade
+     * @param fieldNames Nome da propriedade
      * @return objeto de consulta
      */
-    public JpaCriteriaHelper<T> orderBy( String fieldName ) {
-        orders.add( new OrderEntry(fieldName, OrderDirection.ASC) );
+    public JpaCriteriaHelper<T> orderBy( String ... fieldNames ) {
+        orders.add( new OrderEntry(Arrays.asList(fieldNames), OrderDirection.ASC) );
         return this;
     }
 
@@ -260,28 +318,59 @@ public class JpaCriteriaHelper<T> {
             ArrayList<Order> jpaOrders = new ArrayList<>();
             for (OrderEntry orderField : orders) {
                 if ( orderField.order.equals(OrderDirection.ASC) ) {
-                    jpaOrders.add( criteriaBuilder.asc( root.get(orderField.fieldName) ) );
+                    jpaOrders.add( criteriaBuilder.asc(getPath(orderField.fieldNames, root)));
                 } else {
-                    jpaOrders.add( criteriaBuilder.desc( root.get(orderField.fieldName) ) );
+                    jpaOrders.add( criteriaBuilder.desc(getPath(orderField.fieldNames, root)));
                 }
             }
             criteriaQuery.orderBy( jpaOrders );
         }
 
         if ( pageNumber != null ) {
-            return em.createQuery(criteriaQuery).setFirstResult( (pageNumber - 1) * pageSize ).setMaxResults(pageSize).getResultList();
+            return em.createQuery(criteriaQuery).setFirstResult( (pageNumber - 1) * pageSize ).setMaxResults(pageSize)
+                            .getResultList();
         } else {
             return em.createQuery(criteriaQuery).getResultList();
         }
+    }
+
+    public void delete() {
+        CriteriaDelete<T> criteriaDelete = criteriaBuilder.createCriteriaDelete(entityClass);
+
+        Root<T> root = criteriaDelete.from(entityClass);
+
+        if (!wheres.isEmpty()) {
+            criteriaDelete.where( getPredicates(root, wheres) );
+        }
+
+        em.createQuery(criteriaDelete).executeUpdate();
     }
 
     private void setupQuery(CriteriaQuery<T> criteriaQuery, Root<T> root) {
         // SELECT
         criteriaQuery.select(root);
 
+        //FETCH JOINS
+        directFetch(root);
+
+        listFetch(root);
+
         // WHERE
         if ( ! wheres.isEmpty() ) {
             criteriaQuery.where( getPredicates(root, wheres) );
+        }
+    }
+
+    private void listFetch(Root<T> root) {
+        for (JpaCriteriaHelper<T>.ListFetch<?> listFetch : listFetches) {
+            ListAttribute<? super T, ?> listAttribute = root.getModel().getList(listFetch.attribute, listFetch.clazz);
+            root.fetch(listAttribute);
+        }
+    }
+
+    private void directFetch(Root<T> root) {
+        for (String fetch : directFetches) {
+            root.fetch(fetch);
         }
     }
 
@@ -317,6 +406,20 @@ public class JpaCriteriaHelper<T> {
             return null;
         } else {
             return resultList.get(0);
+        }
+    }
+
+    /**
+     * Obtém apenas o primeiro registro do resultado da cpnsulta
+     * @return O primeiro objeto retornado da consulta ou <b>null</b> se a consulta não retornar resultados
+     */
+    public Optional<T> getFirstResultOpt() {
+        T firstResult = getFirstResult();
+
+        if (firstResult == null) {
+            return Optional.empty();
+        } else {
+            return Optional.of(firstResult);
         }
     }
 
@@ -358,7 +461,7 @@ public class JpaCriteriaHelper<T> {
         return em.createQuery( criteriaQuery ).getSingleResult();
     }
 
-    private void addTowhere( String fieldName, ComparatorOperator comparator, Object valueIni, Object valueEnd, LogicalOperator logicalOperator ) {
+    private void addTowhere( List<String> fieldNames, ComparatorOperator comparator, Object valueIni, Object valueEnd, LogicalOperator logicalOperator ) {
         if ( ( comparator.equals(ComparatorOperator.GREATER_THAN) || comparator.equals(ComparatorOperator.LESS_THAN) )
                 && ! (valueIni instanceof Comparable) ) {
             throw new RuntimeException("Para os tipos de operador "
@@ -379,7 +482,7 @@ public class JpaCriteriaHelper<T> {
             logicalOperator = LogicalOperator.AND;
         }
 
-        wheres.add( new WhereEntry(fieldName, comparator, valueIni, valueEnd, logicalOperator) );
+        wheres.add( new WhereEntry(fieldNames, comparator, valueIni, valueEnd, logicalOperator) );
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" }) // TODO: tentar retirar estes warnings
@@ -391,38 +494,39 @@ public class JpaCriteriaHelper<T> {
             Predicate predicate;
 
             // --- OPERADOR DE COMPARAÇÃO ---
+            Path path = getPath(whereEntry.fieldNames, root);
             switch (whereEntry.comparatorOperator) {
                 case EQUAL:
                     if ( whereEntry.valueIni == null ) {
-                        predicate = criteriaBuilder.isNull(root.get(whereEntry.fieldName));
+                        predicate = criteriaBuilder.isNull(path);
                     } else {
-                        predicate = criteriaBuilder.equal(root.get(whereEntry.fieldName), whereEntry.valueIni);
+                        predicate = criteriaBuilder.equal(path, whereEntry.valueIni);
                     }
                     break;
                 case NOT_EQUAL:
                     if ( whereEntry.valueIni == null ) {
-                        predicate = criteriaBuilder.isNotNull(root.get(whereEntry.fieldName));
+                        predicate = criteriaBuilder.isNotNull(path);
                     } else {
-                        predicate = criteriaBuilder.notEqual(root.get(whereEntry.fieldName), whereEntry.valueIni);
+                        predicate = criteriaBuilder.notEqual(path, whereEntry.valueIni);
                     }
                     break;
                 case GREATER_THAN:
-                    predicate = criteriaBuilder.greaterThan(root.get(whereEntry.fieldName), (Comparable) whereEntry.valueIni);
+                    predicate = criteriaBuilder.greaterThan(path, (Comparable) whereEntry.valueIni);
                     break;
                 case LESS_THAN:
-                    predicate = criteriaBuilder.lessThan(root.get(whereEntry.fieldName), (Comparable) whereEntry.valueIni);
+                    predicate = criteriaBuilder.lessThan(path, (Comparable) whereEntry.valueIni);
                     break;
                 case LIKE:
-                    predicate = criteriaBuilder.like(root.get(whereEntry.fieldName), whereEntry.valueIni.toString());
+                    predicate = criteriaBuilder.like(path, whereEntry.valueIni.toString());
                     break;
                 case LIKE_IGNORE_CASE:
-                    predicate = criteriaBuilder.like( criteriaBuilder.upper(root.get(whereEntry.fieldName)), whereEntry.valueIni.toString().toUpperCase() );
+                    predicate = criteriaBuilder.like( criteriaBuilder.upper(path), whereEntry.valueIni.toString().toUpperCase() );
                     break;
                 case IN:
-                    predicate = root.get(whereEntry.fieldName).in( (Collection) whereEntry.valueIni);
+                    predicate = path.in( (Collection) whereEntry.valueIni);
                     break;
                 case BETWEEN:
-                    predicate = criteriaBuilder.between(root.get(whereEntry.fieldName), (Comparable) whereEntry.valueIni, (Comparable) whereEntry.valueEnd);
+                    predicate = criteriaBuilder.between(path, (Comparable) whereEntry.valueIni, (Comparable) whereEntry.valueEnd);
                     break;
                 default:
                     throw new RuntimeException("Tipo de operador de comparação não conhecido: " + whereEntry.comparatorOperator);
@@ -450,6 +554,41 @@ public class JpaCriteriaHelper<T> {
         predicates.add( predMaster );
 
         return predicates.toArray(new Predicate[] {});
+    }
+
+    // TODO: testar se está fazendo JOIN corretamente para múltiplos níveis
+    private Path<?> getPath(List<String> fieldNames, Root<T> root) {
+        javax.persistence.criteria.Path<?> entity = root;
+        
+        for (String fieldName : fieldNames) {
+            Path<Object> fieldAsPath = entity.get(fieldName);
+            if ( Collection.class.isAssignableFrom( fieldAsPath.getJavaType() ) ) {
+                if ( ! joinsMap.containsKey(fieldAsPath) ) {
+                    joinsMap.put(fieldAsPath, ((From<?, ?>) entity).join(fieldName));
+                }
+                entity = joinsMap.get(fieldAsPath);
+            } else {
+                entity = entity.get(fieldName);
+            }
+        }
+
+        return entity;
+    }
+
+    public JpaCriteriaHelper<T> fetch(String property) {
+        this.directFetches.add(property);
+
+        return this;
+    }
+
+    public <E> JpaCriteriaHelper<T> fetch(String fetch, Class<E> clazz) {
+        this.listFetches.add(new ListFetch<>(fetch, clazz));
+
+        return this;
+    }
+
+    public static <T> JpaCriteriaHelper<T> create(EntityManager em, Class<T> entityClazz) {
+        return new JpaCriteriaHelper<>( em, entityClazz );
     }
 
 }
