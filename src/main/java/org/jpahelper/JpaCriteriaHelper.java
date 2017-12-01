@@ -126,7 +126,7 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
-     * Inclui uma cláusula WHERE com operador {@link ComparatorOperator.EQUAL} implícito
+     * Inclui uma clausula WHERE com operador {@link ComparatorOperator.EQUAL} implicito
      * @param fieldName fieldName Nome da propriedade
      * @param value Valor
      * @return objeto de consulta
@@ -136,7 +136,7 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
-     * Inclui uma cláusula WHERE com operador {@link ComparatorOperator.EQUAL} implícito
+     * Inclui uma clausula WHERE com operador {@link ComparatorOperator.EQUAL} implicito
      * @param fieldNames fieldName Nome da propriedade
      * @param value Valor
      * @return objeto de consulta
@@ -148,7 +148,7 @@ public class JpaCriteriaHelper<T> {
 
 
     /**
-     * Inclui uma cláusula WHERE
+     * Inclui uma clausula WHERE
      * @param fieldName Nome da propriedade
      * @param comparator Comparador <b>(Para {@link ComparatorOperator.GREATER_THAN} e {@link ComparatorOperator.GREATER_THAN}
      * é necessário que valor complemente {@link Comparable})</b>
@@ -166,7 +166,7 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
-     * Inclui uma cláusula WHERE de BETWEEN
+     * Inclui uma clausula WHERE de BETWEEN
      * @param fieldName Nome da propriedade
      * @param comparator Comparador BETWEEN (apenas este é aceito para este método)
      * @param valueIni Valor inicial <b>(necessita implementar {@link Comparable})</b>
@@ -180,7 +180,7 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
-     * Inclui uma cláusula WHERE com um operador AND
+     * Inclui uma clausula WHERE com um operador AND
      * @param fieldName Nome da propriedade
      * @param value Valor
      * @return objeto de consulta
@@ -196,7 +196,7 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
-     * Inclui uma cláusula WHERE de BETWEEN após um operador AND
+     * Inclui uma clausula WHERE de BETWEEN após um operador AND
      * @param fieldName Nome da propriedade
      * @param comparator Comparador BETWEEN (apenas este é aceito para este método)
      * @param valueIni Valor inicial <b>(necessita implementar {@link Comparable})</b>
@@ -210,7 +210,7 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
-     * Inclui uma cláusula WHERE após um operador AND
+     * Inclui uma clausulaWHERE após um operador AND
      * @param fieldName Nome da propriedade
      * @param comparator Comparador <b>(Para {@link ComparatorOperator.GREATER_THAN} e {@link ComparatorOperator.GREATER_THAN}
      * é necessário que valor complemente {@link Comparable})</b>
@@ -223,7 +223,7 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
-     * Inclui uma cláusula WHERE com um operador AND
+     * Inclui uma clausula WHERE com um operador AND
      * @param fieldName Nome da propriedade
      * @param value Valor
      * @return objeto de consulta
@@ -234,7 +234,7 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
-     * Inclui uma cláusula WHERE de BETWEEN após um operador OR
+     * Inclui uma clausula WHERE de BETWEEN após um operador OR
      * @param fieldName Nome da propriedade
      * @param comparator Comparador BETWEEN (apenas este é aceito para este método)
      * @param valueIni Valor inicial <b>(necessita implementar {@link Comparable})</b>
@@ -248,7 +248,7 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
-     * Inclui uma cláusula WHERE após um operador OR
+     * Inclui uma clausula WHERE após um operador OR
      * @param fieldName Nome da propriedade
      * @param comparator Comparador <b>(Para {@link ComparatorOperator.GREATER_THAN} e {@link ComparatorOperator.GREATER_THAN}
      * é necessário que valor complemente {@link Comparable})</b>
@@ -271,7 +271,7 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
-     * Inclui cláusula ORDER BY
+     * Inclui clausula ORDER BY
      * @param fieldNames Nome da propriedade
      * @return objeto de consulta
      */
@@ -281,7 +281,7 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
-     * Define a última cláusula ORDER BY como ascedente
+     * Define a ultima clausula ORDER BY como ascedente
      * @return objeto de consulta
      */
     public JpaCriteriaHelper<T> asc() {
@@ -293,7 +293,7 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
-     * Define a última cláusula ORDER BY como descedente
+     * Define a ultima clausula ORDER BY como descedente
      * @return objeto de consulta
      */
     public JpaCriteriaHelper<T> desc() {
@@ -305,7 +305,7 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
-     * Obtém lista com os resultados
+     * Obtem lista com os resultados
      * @return Lista de resultados
      */
     public List<T> getResults() {
@@ -385,7 +385,7 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
-     * Define a página que será retornada
+     * Define a pagina que serah retornada
      * <b>Se a página for informada, ativa a paginação de resultados</b>
      * Por padrão, não será efetuada paginação dos resultados
      * @param pageNumber Número da página (informe <b>null</b> para desativar a página)
@@ -397,7 +397,7 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
-     * Obtém apenas o primeiro registro do resultado da cpnsulta
+     * Obtem apenas o primeiro registro do resultado da consulta
      * @return O primeiro objeto retornado da consulta ou <b>null</b> se a consulta não retornar resultados
      */
     public T getFirstResult() {
@@ -424,7 +424,7 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
-     * Obtém unico registro do resultado da consulta
+     * Obtem unico registro do resultado da consulta
      * @return O primeiro objeto retornado da consulta
      */
     public T getSingleResult() {
@@ -446,7 +446,7 @@ public class JpaCriteriaHelper<T> {
 
     /**
      * Efetua a contagem dos registros da consulta
-     * @return O número de registros retornados pela consulta
+     * @return numero de registros retornados pela consulta
      */
     public long count() {
         CriteriaQuery<Long> criteriaQuery = criteriaBuilder.createQuery(Long.class);
@@ -556,7 +556,7 @@ public class JpaCriteriaHelper<T> {
         return predicates.toArray(new Predicate[] {});
     }
 
-    // TODO: testar se está fazendo JOIN corretamente para múltiplos níveis
+    // TODO: testar se estah fazendo JOIN corretamente para multiplos niveis
     private Path<?> getPath(List<String> fieldNames, Root<T> root) {
         javax.persistence.criteria.Path<?> entity = root;
         

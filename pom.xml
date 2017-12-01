@@ -4,6 +4,16 @@
   <groupId>org.jpahelper</groupId>
   <artifactId>JpaCriteriaHelper</artifactId>
   <version>0.0.1-SNAPSHOT</version>
+  
+  <url>https://github.com/mpg5000/JpaCriteriaHelper</url>
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <distribution>repo</distribution>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.html</url>
+    </license>
+  </licenses>
+  
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -18,4 +28,18 @@
       <scope>provided</scope>
     </dependency>
   </dependencies>
+  
+  <distributionManagement>
+    <repository>
+      <id>procempa-nexus-repo</id>
+      <name>Internal Releases</name>
+      <url>http://nexus.procempa.com.br/content/repositories/releases/</url>
+    </repository>
+    <snapshotRepository>
+      <id>procempa-nexus-repo</id>
+      <name>Internal Snapshots</name>
+      <url>http://nexus.procempa.com.br/content/repositories/snapshots/</url>
+    </snapshotRepository>
+  </distributionManagement>
+  
 </project>
