@@ -6,9 +6,10 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
-
 import javax.persistence.EntityManager;
+import javax.persistence.TypedQuery;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaDelete;
 import javax.persistence.criteria.CriteriaQuery;
@@ -17,6 +18,7 @@ import javax.persistence.criteria.Order;
 import javax.persistence.criteria.Path;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
+import javax.persistence.criteria.Selection;
 import javax.persistence.metamodel.ListAttribute;
 
 /**
@@ -49,7 +51,7 @@ public class JpaCriteriaHelper<T> {
     private List<String> directFetches;
 
     private List<ListFetch<?>> listFetches;
-    
+
     private Map<Path<?>, From<?, ?>> joinsMap = new HashMap<>();
 
     private class ListFetch<E> {
@@ -189,7 +191,7 @@ public class JpaCriteriaHelper<T> {
         addTowhere(Arrays.asList(fieldName), ComparatorOperator.EQUAL, value, null, LogicalOperator.AND);
         return this;
     }
-    
+
     public JpaCriteriaHelper<T> and( List<String> fieldNames, Object value ) {
         addTowhere(fieldNames, ComparatorOperator.EQUAL, value, null, LogicalOperator.AND);
         return this;
@@ -310,27 +312,30 @@ public class JpaCriteriaHelper<T> {
      */
     public List<T> getResults() {
         CriteriaQuery<T> criteriaQuery = criteriaBuilder.createQuery(entityClass);
-        Root<T> root                   = criteriaQuery.from(entityClass);
+        Root<T> root = criteriaQuery.from(entityClass);
+
+        criteriaQuery.select(root);
+
         setupQuery(criteriaQuery, root);
 
-        // ORDER BY
-        if ( ! orders.isEmpty() ) {
+        TypedQuery<T> typedQuery = em.createQuery(criteriaQuery);
+
+        setupPagination(typedQuery);
+
+        return typedQuery.getResultList();
+    }
+
+    private <E, Y> void orderBy(CriteriaQuery<E> criteriaQuery, Root<Y> root) {
+        if (!orders.isEmpty()) {
             ArrayList<Order> jpaOrders = new ArrayList<>();
             for (OrderEntry orderField : orders) {
-                if ( orderField.order.equals(OrderDirection.ASC) ) {
-                    jpaOrders.add( criteriaBuilder.asc(getPath(orderField.fieldNames, root)));
+                if (orderField.order.equals(OrderDirection.ASC)) {
+                    jpaOrders.add(criteriaBuilder.asc(getPath(orderField.fieldNames, root)));
                 } else {
-                    jpaOrders.add( criteriaBuilder.desc(getPath(orderField.fieldNames, root)));
+                    jpaOrders.add(criteriaBuilder.desc(getPath(orderField.fieldNames, root)));
                 }
             }
-            criteriaQuery.orderBy( jpaOrders );
-        }
-
-        if ( pageNumber != null ) {
-            return em.createQuery(criteriaQuery).setFirstResult( (pageNumber - 1) * pageSize ).setMaxResults(pageSize)
-                            .getResultList();
-        } else {
-            return em.createQuery(criteriaQuery).getResultList();
+            criteriaQuery.orderBy(jpaOrders);
         }
     }
 
@@ -346,29 +351,27 @@ public class JpaCriteriaHelper<T> {
         em.createQuery(criteriaDelete).executeUpdate();
     }
 
-    private void setupQuery(CriteriaQuery<T> criteriaQuery, Root<T> root) {
-        // SELECT
-        criteriaQuery.select(root);
-
+    private <C, R> void setupQuery(CriteriaQuery<C> criteriaQuery, Root<R> root) {
         //FETCH JOINS
         directFetch(root);
 
         listFetch(root);
 
-        // WHERE
-        if ( ! wheres.isEmpty() ) {
-            criteriaQuery.where( getPredicates(root, wheres) );
+        if (!wheres.isEmpty()) {
+            criteriaQuery.where(getPredicates(root, wheres));
         }
+
+        orderBy(criteriaQuery, root);
     }
 
-    private void listFetch(Root<T> root) {
+    private <R> void listFetch(Root<R> root) {
         for (JpaCriteriaHelper<T>.ListFetch<?> listFetch : listFetches) {
-            ListAttribute<? super T, ?> listAttribute = root.getModel().getList(listFetch.attribute, listFetch.clazz);
+            ListAttribute<? super R, ?> listAttribute = root.getModel().getList(listFetch.attribute, listFetch.clazz);
             root.fetch(listAttribute);
         }
     }
 
-    private void directFetch(Root<T> root) {
+    private <R> void directFetch(Root<R> root) {
         for (String fetch : directFetches) {
             root.fetch(fetch);
         }
@@ -429,7 +432,9 @@ public class JpaCriteriaHelper<T> {
      */
     public T getSingleResult() {
         CriteriaQuery<T> criteriaQuery = criteriaBuilder.createQuery(entityClass);
-        Root<T> root                   = criteriaQuery.from(entityClass);
+        Root<T> root = criteriaQuery.from(entityClass);
+        criteriaQuery.select(root);
+
         setupQuery(criteriaQuery, root);
 
         return em.createQuery(criteriaQuery).getSingleResult();
@@ -486,7 +491,7 @@ public class JpaCriteriaHelper<T> {
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" }) // TODO: tentar retirar estes warnings
-    private Predicate[] getPredicates( Root<T> root, List<WhereEntry> wheres ) {
+    private <E> Predicate[] getPredicates( Root<E> root, List<WhereEntry> wheres ) {
         List<Predicate> predicates = new ArrayList<>();
         Predicate predMaster = null;
 
@@ -557,9 +562,9 @@ public class JpaCriteriaHelper<T> {
     }
 
     // TODO: testar se estah fazendo JOIN corretamente para multiplos niveis
-    private Path<?> getPath(List<String> fieldNames, Root<T> root) {
+    private <E> Path<?> getPath(List<String> fieldNames, Root<E> root) {
         javax.persistence.criteria.Path<?> entity = root;
-        
+
         for (String fieldName : fieldNames) {
             Path<Object> fieldAsPath = entity.get(fieldName);
             if ( Collection.class.isAssignableFrom( fieldAsPath.getJavaType() ) ) {
@@ -589,6 +594,50 @@ public class JpaCriteriaHelper<T> {
 
     public static <T> JpaCriteriaHelper<T> create(EntityManager em, Class<T> entityClazz) {
         return new JpaCriteriaHelper<>( em, entityClazz );
+    }
+
+    /**
+     * Obtem as columns especificadas na classe tupleClazz E a partir da entityClass T.
+     *
+     * <p>
+     * A classe tupleClazz precisa possuir um construtor que respeite a ordem das columns informadas.
+     *
+     * @param tupleClazz POJO de retorno para a busca.
+     * @param columns colunas que se deseja trazer da entityClass T.
+     *
+     * @return
+     */
+    public <C> List<C> getTupleResults(Class<C> tupleClazz, List<String> columns) {
+        Objects.requireNonNull(tupleClazz);
+        Objects.requireNonNull(columns);
+
+        CriteriaQuery<C> cq = em.getCriteriaBuilder().createQuery(tupleClazz);
+        Root<T> root = cq.from(entityClass);
+
+        setupQuery(cq, root);
+
+        if (!columns.isEmpty()) {
+            List<Selection<?>> selections = new ArrayList<>();
+
+            for (String column : columns) {
+                selections.add(root.get(column));
+            }
+
+            Selection<?>[] selectionsArray = selections.toArray(new Selection<?>[selections.size()]);
+            cq.multiselect(selectionsArray);
+        }
+
+        TypedQuery<C> typedQuery = em.createQuery(cq);
+
+        setupPagination(typedQuery);
+
+        return typedQuery.getResultList();
+    }
+
+    private <E> void setupPagination(TypedQuery<E> tq) {
+        if (pageNumber != null) {
+            tq.setFirstResult((pageNumber - 1) * pageSize).setMaxResults(pageSize);
+        }
     }
 
 }
