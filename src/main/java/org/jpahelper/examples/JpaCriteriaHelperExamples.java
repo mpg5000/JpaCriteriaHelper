@@ -56,4 +56,13 @@ public class JpaCriteriaHelperExamples {
                 .getFirstResult();
     }
     
+    public int update( String nameToBeChanged, String newName, Integer newAge ) {
+        return JpaCriteriaHelper
+                .update(em, MyEntity.class)
+                .set("name", newName)
+                .set("age", newAge)
+                .where("name", nameToBeChanged)
+                .execute();
+    }
+    
 }
