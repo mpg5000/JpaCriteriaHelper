@@ -262,7 +262,7 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
-     * Inclui uma clausulaWHERE após um operador AND
+     * Inclui uma clausula WHERE após um operador AND
      * @param fieldName Nome da propriedade
      * @param comparator Comparador <b>(Para {@link ComparatorOperator.GREATER_THAN} e {@link ComparatorOperator.GREATER_THAN}
      * é necessário que valor complemente {@link Comparable})</b>
@@ -271,6 +271,19 @@ public class JpaCriteriaHelper<T> {
      */
     public JpaCriteriaHelper<T> and( String fieldName, ComparatorOperator comparator, Object value ) {
         wheres.add( new WhereEntry(Arrays.asList(fieldName), comparator, value, null, LogicalOperator.AND) );
+        return this;
+    }
+    
+    /**
+     * Inclui uma clausula WHERE após um operador AND
+     * @param fieldNames Nome das propriedades
+     * @param comparator Comparador <b>(Para {@link ComparatorOperator.GREATER_THAN} e {@link ComparatorOperator.GREATER_THAN}
+     * é necessário que valor complemente {@link Comparable})</b>
+     * @param value Valor
+     * @return objeto de consulta
+     */
+    public JpaCriteriaHelper<T> and( List<String> fieldNames, ComparatorOperator comparator, Object value ) {
+        wheres.add( new WhereEntry(fieldNames, comparator, value, null, LogicalOperator.AND) );
         return this;
     }
 
