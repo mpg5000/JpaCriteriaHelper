@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import javax.persistence.EntityManager;
@@ -13,6 +14,7 @@ import javax.persistence.TypedQuery;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaDelete;
 import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.CriteriaUpdate;
 import javax.persistence.criteria.From;
 import javax.persistence.criteria.Order;
 import javax.persistence.criteria.Path;
@@ -31,6 +33,7 @@ public class JpaCriteriaHelper<T> {
     public enum ComparatorOperator { EQUAL, NOT_EQUAL, LIKE, LIKE_IGNORE_CASE, BETWEEN, GREATER_THAN, LESS_THAN, IN };
     public enum LogicalOperator { AND, OR };
     public enum OrderDirection { ASC, DESC };
+    private enum SqlOperation { SELECT, UPDATE };
 
     private static final Integer DEFAULT_PAGE_SIZE = 50;
 
@@ -41,6 +44,8 @@ public class JpaCriteriaHelper<T> {
     private List<WhereEntry> wheres = new ArrayList<>();
 
     private List<OrderEntry> orders = new ArrayList<>();
+    
+    private Map<List<String>, Object> updates = new HashMap<>();
 
     private Integer pageSize = DEFAULT_PAGE_SIZE;
 
@@ -48,11 +53,13 @@ public class JpaCriteriaHelper<T> {
 
     private Class<T> entityClass;
 
-    private List<String> directFetches;
+    private List<String> directFetches = new ArrayList<>();
 
-    private List<ListFetch<?>> listFetches;
+    private List<ListFetch<?>> listFetches = new ArrayList<>();
 
     private Map<Path<?>, From<?, ?>> joinsMap = new HashMap<>();
+    
+    private SqlOperation sqlOperation; 
 
     private class ListFetch<E> {
         private String attribute;
@@ -109,12 +116,11 @@ public class JpaCriteriaHelper<T> {
         }
     }
 
-    private JpaCriteriaHelper( EntityManager em, Class<T> entityClass ) {
-        this.em               = em;
-        this.entityClass      = entityClass;
-        this.criteriaBuilder  = em.getCriteriaBuilder();
-        this.directFetches = new ArrayList<>();
-        this.listFetches = new ArrayList<>();
+    private JpaCriteriaHelper( EntityManager em, Class<T> entityClass, SqlOperation sqlOperation ) {
+        this.em              = em;
+        this.entityClass     = entityClass;
+        this.criteriaBuilder = em.getCriteriaBuilder();
+        this.sqlOperation    = sqlOperation;
     }
 
     /**
@@ -124,7 +130,39 @@ public class JpaCriteriaHelper<T> {
      * @return objeto de consulta
      */
     public static <X> JpaCriteriaHelper<X> select( EntityManager em, Class<X> entityClazz ) {
-        return new JpaCriteriaHelper<>( em, entityClazz );
+        return new JpaCriteriaHelper<>( em, entityClazz, SqlOperation.SELECT );
+    }
+    
+    /**
+     * Cria o objeto para update
+     * @param em EntityManager
+     * @param entityClazz Classe de destino
+     * @return objeto de update
+     */
+    public static <X> JpaCriteriaHelper<X> update( EntityManager em, Class<X> entityClazz ) {
+        return new JpaCriteriaHelper<>( em, entityClazz, SqlOperation.UPDATE );
+    }
+    
+    /**
+     * Atribui valor a um campo (em uma operação de update)
+     * @param fieldName Nome da propriedade
+     * @param value Valor
+     * @return objeto de consulta
+     */
+    public JpaCriteriaHelper<T> set( String fieldName, Object value ) {
+        return set( Arrays.asList(fieldName), value );
+    }
+    
+    /**
+     * Atribui valor a um campo (em uma operação de update)
+     * @param fieldNames Nome da propriedade
+     * @param value Valor
+     * @return objeto de consulta
+     */
+    public JpaCriteriaHelper<T> set( List<String> fieldNames, Object value ) {
+        demandsOperation(SqlOperation.UPDATE);
+        updates.put(fieldNames, value);
+        return this;
     }
 
     /**
@@ -147,8 +185,6 @@ public class JpaCriteriaHelper<T> {
         return where(fieldNames, ComparatorOperator.EQUAL, value);
     }
 
-
-
     /**
      * Inclui uma clausula WHERE
      * @param fieldName Nome da propriedade
@@ -162,6 +198,14 @@ public class JpaCriteriaHelper<T> {
         return this;
     }
 
+    /**
+     * Inclui uma clausula WHERE
+     * @param fieldNames Nome da propriedade
+     * @param comparator Comparador <b>(Para {@link ComparatorOperator.GREATER_THAN} e {@link ComparatorOperator.GREATER_THAN}
+     * é necessário que valor complemente {@link Comparable})</b>
+     * @param value Valor
+     * @return objeto de consulta
+     */
     public JpaCriteriaHelper<T> where( List<String> fieldNames, ComparatorOperator comparator, Object value ) {
         addTowhere(fieldNames, comparator, value, null, null);
         return this;
@@ -192,6 +236,12 @@ public class JpaCriteriaHelper<T> {
         return this;
     }
 
+    /**
+     * Inclui uma clausula WHERE com um operador AND
+     * @param fieldNames Nome da propriedade
+     * @param value Valor
+     * @return objeto de consulta
+     */
     public JpaCriteriaHelper<T> and( List<String> fieldNames, Object value ) {
         addTowhere(fieldNames, ComparatorOperator.EQUAL, value, null, LogicalOperator.AND);
         return this;
@@ -212,7 +262,7 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
-     * Inclui uma clausulaWHERE após um operador AND
+     * Inclui uma clausula WHERE após um operador AND
      * @param fieldName Nome da propriedade
      * @param comparator Comparador <b>(Para {@link ComparatorOperator.GREATER_THAN} e {@link ComparatorOperator.GREATER_THAN}
      * é necessário que valor complemente {@link Comparable})</b>
@@ -221,6 +271,19 @@ public class JpaCriteriaHelper<T> {
      */
     public JpaCriteriaHelper<T> and( String fieldName, ComparatorOperator comparator, Object value ) {
         wheres.add( new WhereEntry(Arrays.asList(fieldName), comparator, value, null, LogicalOperator.AND) );
+        return this;
+    }
+    
+    /**
+     * Inclui uma clausula WHERE após um operador AND
+     * @param fieldNames Nome das propriedades
+     * @param comparator Comparador <b>(Para {@link ComparatorOperator.GREATER_THAN} e {@link ComparatorOperator.GREATER_THAN}
+     * é necessário que valor complemente {@link Comparable})</b>
+     * @param value Valor
+     * @return objeto de consulta
+     */
+    public JpaCriteriaHelper<T> and( List<String> fieldNames, ComparatorOperator comparator, Object value ) {
+        wheres.add( new WhereEntry(fieldNames, comparator, value, null, LogicalOperator.AND) );
         return this;
     }
 
@@ -278,6 +341,7 @@ public class JpaCriteriaHelper<T> {
      * @return objeto de consulta
      */
     public JpaCriteriaHelper<T> orderBy( String ... fieldNames ) {
+        demandsOperation(SqlOperation.SELECT);
         orders.add( new OrderEntry(Arrays.asList(fieldNames), OrderDirection.ASC) );
         return this;
     }
@@ -287,6 +351,7 @@ public class JpaCriteriaHelper<T> {
      * @return objeto de consulta
      */
     public JpaCriteriaHelper<T> asc() {
+        demandsOperation(SqlOperation.SELECT);
         if ( ! orders.isEmpty() ) {
             throw new RuntimeException("Nenhum cláusula ORDER BY definida");
         }
@@ -299,6 +364,7 @@ public class JpaCriteriaHelper<T> {
      * @return objeto de consulta
      */
     public JpaCriteriaHelper<T> desc() {
+        demandsOperation(SqlOperation.SELECT);
         if ( orders.isEmpty() ) {
             throw new RuntimeException("Nenhum cláusula ORDER BY definida");
         }
@@ -311,6 +377,7 @@ public class JpaCriteriaHelper<T> {
      * @return Lista de resultados
      */
     public List<T> getResults() {
+        demandsOperation(SqlOperation.SELECT);
         CriteriaQuery<T> criteriaQuery = criteriaBuilder.createQuery(entityClass);
         Root<T> root = criteriaQuery.from(entityClass);
 
@@ -383,6 +450,7 @@ public class JpaCriteriaHelper<T> {
      * @return objeto de consulta
      */
     public JpaCriteriaHelper<T> setPageSize(Integer pageSize) {
+        demandsOperation(SqlOperation.SELECT);
         this.pageSize = pageSize;
         return this;
     }
@@ -395,6 +463,7 @@ public class JpaCriteriaHelper<T> {
      * @return objeto de consulta
      */
     public JpaCriteriaHelper<T> page( Integer pageNumber ) {
+        demandsOperation(SqlOperation.SELECT);
         this.pageNumber = pageNumber;
         return this;
     }
@@ -404,6 +473,7 @@ public class JpaCriteriaHelper<T> {
      * @return O primeiro objeto retornado da consulta ou <b>null</b> se a consulta não retornar resultados
      */
     public T getFirstResult() {
+        demandsOperation(SqlOperation.SELECT);
         List<T> resultList = this.setPageSize(1).page(1).getResults();
         if ( resultList.isEmpty() ) {
             return null;
@@ -417,6 +487,7 @@ public class JpaCriteriaHelper<T> {
      * @return O primeiro objeto retornado da consulta ou <b>null</b> se a consulta não retornar resultados
      */
     public Optional<T> getFirstResultOpt() {
+        demandsOperation(SqlOperation.SELECT);
         T firstResult = getFirstResult();
 
         if (firstResult == null) {
@@ -431,6 +502,7 @@ public class JpaCriteriaHelper<T> {
      * @return O primeiro objeto retornado da consulta
      */
     public T getSingleResult() {
+        demandsOperation(SqlOperation.SELECT);
         CriteriaQuery<T> criteriaQuery = criteriaBuilder.createQuery(entityClass);
         Root<T> root = criteriaQuery.from(entityClass);
         criteriaQuery.select(root);
@@ -454,6 +526,7 @@ public class JpaCriteriaHelper<T> {
      * @return numero de registros retornados pela consulta
      */
     public long count() {
+        demandsOperation(SqlOperation.SELECT);
         CriteriaQuery<Long> criteriaQuery = criteriaBuilder.createQuery(Long.class);
         Root<T>                 rootCount = criteriaQuery.from(entityClass);
 
@@ -464,6 +537,32 @@ public class JpaCriteriaHelper<T> {
         }
 
         return em.createQuery( criteriaQuery ).getSingleResult();
+    }
+    
+    /**
+     * Efetua operação de UPDATE
+     * @return
+     */
+    @SuppressWarnings({ "rawtypes", "unchecked" }) // TODO: tentar retirar estes warnings
+    public int execute() {
+        demandsOperation(SqlOperation.UPDATE);
+        CriteriaUpdate<T> criteriaUpdate = criteriaBuilder.createCriteriaUpdate(entityClass);
+        Root<T> rootUpdate               = criteriaUpdate.from(entityClass);
+        
+        if ( ! wheres.isEmpty() ) {
+            criteriaUpdate.where( getPredicates(rootUpdate, wheres) );
+        }
+        
+        if ( updates.isEmpty() ) {
+            throw new RuntimeException("Nenhum campo de update foi informado.");
+        }
+        
+        for (Entry<List<String>, Object> updateEntry : updates.entrySet()) {
+            Path path = getPath(updateEntry.getKey(), rootUpdate);
+            criteriaUpdate.set(path, updateEntry.getValue());
+        }
+        
+        return em.createQuery( criteriaUpdate ).executeUpdate();
     }
 
     private void addTowhere( List<String> fieldNames, ComparatorOperator comparator, Object valueIni, Object valueEnd, LogicalOperator logicalOperator ) {
@@ -580,20 +679,23 @@ public class JpaCriteriaHelper<T> {
         return entity;
     }
 
+    // TODO: demandsOperation(SqlOperation.SELECT); ?
     public JpaCriteriaHelper<T> fetch(String property) {
         this.directFetches.add(property);
 
         return this;
     }
 
+    // TODO: demandsOperation(SqlOperation.SELECT); ?
     public <E> JpaCriteriaHelper<T> fetch(String fetch, Class<E> clazz) {
         this.listFetches.add(new ListFetch<>(fetch, clazz));
 
         return this;
     }
-
+    
+    // TODO: necessário falar com Pietro ??
     public static <T> JpaCriteriaHelper<T> create(EntityManager em, Class<T> entityClazz) {
-        return new JpaCriteriaHelper<>( em, entityClazz );
+        return new JpaCriteriaHelper<>( em, entityClazz, SqlOperation.SELECT );
     }
 
     /**
@@ -608,6 +710,7 @@ public class JpaCriteriaHelper<T> {
      * @return
      */
     public <C> List<C> getTupleResults(Class<C> tupleClazz, List<String> columns) {
+        demandsOperation(SqlOperation.SELECT);
         Objects.requireNonNull(tupleClazz);
         Objects.requireNonNull(columns);
 
@@ -637,6 +740,16 @@ public class JpaCriteriaHelper<T> {
     private <E> void setupPagination(TypedQuery<E> tq) {
         if (pageNumber != null) {
             tq.setFirstResult((pageNumber - 1) * pageSize).setMaxResults(pageSize);
+        }
+    }
+    
+    /**
+     * Confere se a operação atual do objeto é a operação esperada. Lança uma exceção se a operação atual não for igual à esperada.
+     * @param sqlOperation Operação esperada
+     */
+    private void demandsOperation( SqlOperation sqlOperation ) {
+        if ( ! this.sqlOperation.equals( sqlOperation ) ) {
+            throw new RuntimeException("Chamada de método inválida para a operação " + this.sqlOperation.name() + ".");
         }
     }
 
