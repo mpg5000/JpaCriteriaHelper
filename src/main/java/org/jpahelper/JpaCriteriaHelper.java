@@ -260,6 +260,20 @@ public class JpaCriteriaHelper<T> {
         wheres.add( new WhereEntry(Arrays.asList(fieldName), comparator, valueIni, valueEnd, LogicalOperator.AND) );
         return this;
     }
+    
+    /**
+     * Inclui uma clausula WHERE de BETWEEN após um operador AND
+     * @param fieldNames Nome das propriedades
+     * @param comparator Comparador BETWEEN (apenas este é aceito para este método)
+     * @param valueIni Valor inicial <b>(necessita implementar {@link Comparable})</b>
+     * @param valueEnd Valor final <b>(necessita implementar {@link Comparable})</b>
+     * @return objeto de consulta
+     */
+    @SuppressWarnings({ "rawtypes" }) // TODO: tentar resolver este warning
+    public JpaCriteriaHelper<T> and( List<String> fieldNames, ComparatorOperator comparator, Comparable valueIni, Comparable valueEnd ) {
+        wheres.add( new WhereEntry(fieldNames, comparator, valueIni, valueEnd, LogicalOperator.AND) );
+        return this;
+    }
 
     /**
      * Inclui uma clausula WHERE após um operador AND
@@ -311,6 +325,20 @@ public class JpaCriteriaHelper<T> {
         wheres.add( new WhereEntry(Arrays.asList(fieldName), comparator, valueIni, valueEnd, LogicalOperator.OR) );
         return this;
     }
+    
+    /**
+     * Inclui uma clausula WHERE de BETWEEN após um operador OR
+     * @param fieldNames Nome das propriedades
+     * @param comparator Comparador BETWEEN (apenas este é aceito para este método)
+     * @param valueIni Valor inicial <b>(necessita implementar {@link Comparable})</b>
+     * @param valueEnd Valor final <b>(necessita implementar {@link Comparable})</b>
+     * @return objeto de consulta
+     */
+    @SuppressWarnings({ "rawtypes" }) // TODO: tentar resolver este warning
+    public JpaCriteriaHelper<T> or( List<String> fieldNames, ComparatorOperator comparator, Comparable valueIni, Comparable valueEnd ) {
+        wheres.add( new WhereEntry(fieldNames, comparator, valueIni, valueEnd, LogicalOperator.OR) );
+        return this;
+    }
 
     /**
      * Inclui uma clausula WHERE após um operador OR
@@ -324,12 +352,26 @@ public class JpaCriteriaHelper<T> {
         wheres.add( new WhereEntry(Arrays.asList(fieldName), comparator, value, null, LogicalOperator.OR) );
         return this;
     }
-
+    
+    /**
+     * Inclui uma clausula WHERE após um operador OR
+     * @param fieldNames Nome das propriedades
+     * @param comparator Comparador <b>(Para {@link ComparatorOperator.GREATER_THAN} e {@link ComparatorOperator.GREATER_THAN}
+     * é necessário que valor complemente {@link Comparable})</b>
+     * @param value Valor
+     * @return objeto de consulta
+     */
     public JpaCriteriaHelper<T> or( List<String> fieldNames, ComparatorOperator comparator, Object value ) {
         wheres.add( new WhereEntry(fieldNames, comparator, value, null, LogicalOperator.OR) );
         return this;
     }
 
+    /**
+     * Inclui uma clausula WHERE após um operador OR
+     * @param fieldNames Nome das propriedades
+     * @param value Valor
+     * @return objeto de consulta
+     */
     public JpaCriteriaHelper<T> or( List<String> fieldNames, Object value ) {
         wheres.add( new WhereEntry(fieldNames, ComparatorOperator.EQUAL, value, null, LogicalOperator.OR) );
         return this;
