@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+
 import javax.persistence.EntityManager;
 import javax.persistence.TypedQuery;
 import javax.persistence.criteria.CriteriaBuilder;
@@ -44,7 +45,7 @@ public class JpaCriteriaHelper<T> {
     private List<WhereEntry> wheres = new ArrayList<>();
 
     private List<OrderEntry> orders = new ArrayList<>();
-    
+
     private Map<List<String>, Object> updates = new HashMap<>();
 
     private Integer pageSize = DEFAULT_PAGE_SIZE;
@@ -58,8 +59,8 @@ public class JpaCriteriaHelper<T> {
     private List<ListFetch<?>> listFetches = new ArrayList<>();
 
     private Map<Path<?>, From<?, ?>> joinsMap = new HashMap<>();
-    
-    private SqlOperation sqlOperation; 
+
+    private SqlOperation sqlOperation;
 
     private class ListFetch<E> {
         private String attribute;
@@ -132,7 +133,7 @@ public class JpaCriteriaHelper<T> {
     public static <X> JpaCriteriaHelper<X> select( EntityManager em, Class<X> entityClazz ) {
         return new JpaCriteriaHelper<>( em, entityClazz, SqlOperation.SELECT );
     }
-    
+
     /**
      * Cria o objeto para update
      * @param em EntityManager
@@ -142,7 +143,7 @@ public class JpaCriteriaHelper<T> {
     public static <X> JpaCriteriaHelper<X> update( EntityManager em, Class<X> entityClazz ) {
         return new JpaCriteriaHelper<>( em, entityClazz, SqlOperation.UPDATE );
     }
-    
+
     /**
      * Atribui valor a um campo (em uma operação de update)
      * @param fieldName Nome da propriedade
@@ -152,7 +153,7 @@ public class JpaCriteriaHelper<T> {
     public JpaCriteriaHelper<T> set( String fieldName, Object value ) {
         return set( Arrays.asList(fieldName), value );
     }
-    
+
     /**
      * Atribui valor a um campo (em uma operação de update)
      * @param fieldNames Nome da propriedade
@@ -226,6 +227,20 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
+     * Inclui uma clausula WHERE de BETWEEN após um operador AND
+     * @param fieldNames Nome da propriedade
+     * @param comparator Comparador BETWEEN (apenas este é aceito para este método)
+     * @param valueIni Valor inicial <b>(necessita implementar {@link Comparable})</b>
+     * @param valueEnd Valor final <b>(necessita implementar {@link Comparable})</b>
+     * @return objeto de consulta
+     */
+    @SuppressWarnings({ "rawtypes" }) // TODO: tentar resolver este warning
+    public JpaCriteriaHelper<T> where( List<String> fieldNames, ComparatorOperator comparator, Comparable valueIni, Comparable valueEnd ) {
+        wheres.add( new WhereEntry(fieldNames, comparator, valueIni, valueEnd, LogicalOperator.AND) );
+        return this;
+    }
+
+    /**
      * Inclui uma clausula WHERE com um operador AND
      * @param fieldName Nome da propriedade
      * @param value Valor
@@ -260,7 +275,7 @@ public class JpaCriteriaHelper<T> {
         wheres.add( new WhereEntry(Arrays.asList(fieldName), comparator, valueIni, valueEnd, LogicalOperator.AND) );
         return this;
     }
-    
+
     /**
      * Inclui uma clausula WHERE de BETWEEN após um operador AND
      * @param fieldNames Nome das propriedades
@@ -287,7 +302,7 @@ public class JpaCriteriaHelper<T> {
         wheres.add( new WhereEntry(Arrays.asList(fieldName), comparator, value, null, LogicalOperator.AND) );
         return this;
     }
-    
+
     /**
      * Inclui uma clausula WHERE após um operador AND
      * @param fieldNames Nome das propriedades
@@ -325,7 +340,7 @@ public class JpaCriteriaHelper<T> {
         wheres.add( new WhereEntry(Arrays.asList(fieldName), comparator, valueIni, valueEnd, LogicalOperator.OR) );
         return this;
     }
-    
+
     /**
      * Inclui uma clausula WHERE de BETWEEN após um operador OR
      * @param fieldNames Nome das propriedades
@@ -352,7 +367,7 @@ public class JpaCriteriaHelper<T> {
         wheres.add( new WhereEntry(Arrays.asList(fieldName), comparator, value, null, LogicalOperator.OR) );
         return this;
     }
-    
+
     /**
      * Inclui uma clausula WHERE após um operador OR
      * @param fieldNames Nome das propriedades
@@ -580,7 +595,7 @@ public class JpaCriteriaHelper<T> {
 
         return em.createQuery( criteriaQuery ).getSingleResult();
     }
-    
+
     /**
      * Efetua operação de UPDATE
      * @return
@@ -590,20 +605,20 @@ public class JpaCriteriaHelper<T> {
         demandsOperation(SqlOperation.UPDATE);
         CriteriaUpdate<T> criteriaUpdate = criteriaBuilder.createCriteriaUpdate(entityClass);
         Root<T> rootUpdate               = criteriaUpdate.from(entityClass);
-        
+
         if ( ! wheres.isEmpty() ) {
             criteriaUpdate.where( getPredicates(rootUpdate, wheres) );
         }
-        
+
         if ( updates.isEmpty() ) {
             throw new RuntimeException("Nenhum campo de update foi informado.");
         }
-        
+
         for (Entry<List<String>, Object> updateEntry : updates.entrySet()) {
             Path path = getPath(updateEntry.getKey(), rootUpdate);
             criteriaUpdate.set(path, updateEntry.getValue());
         }
-        
+
         return em.createQuery( criteriaUpdate ).executeUpdate();
     }
 
@@ -734,7 +749,7 @@ public class JpaCriteriaHelper<T> {
 
         return this;
     }
-    
+
     // TODO: necessário falar com Pietro ??
     public static <T> JpaCriteriaHelper<T> create(EntityManager em, Class<T> entityClazz) {
         return new JpaCriteriaHelper<>( em, entityClazz, SqlOperation.SELECT );
@@ -784,7 +799,7 @@ public class JpaCriteriaHelper<T> {
             tq.setFirstResult((pageNumber - 1) * pageSize).setMaxResults(pageSize);
         }
     }
-    
+
     /**
      * Confere se a operação atual do objeto é a operação esperada. Lança uma exceção se a operação atual não for igual à esperada.
      * @param sqlOperation Operação esperada
