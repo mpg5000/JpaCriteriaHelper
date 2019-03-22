@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import javax.persistence.EntityManager;
 import javax.persistence.TypedQuery;
@@ -23,6 +24,7 @@ import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 import javax.persistence.criteria.Selection;
 import javax.persistence.metamodel.ListAttribute;
+import javax.persistence.metamodel.SingularAttribute;
 
 /**
  * Classe utilitária para facilitação das chamadas mais simples à JPA utilizando CriteriaBuilder.
@@ -428,6 +430,120 @@ public class JpaCriteriaHelper<T> {
         orders.get( orders.size() - 1 ).order = OrderDirection.DESC;
         return this;
     }
+    
+    
+    
+    
+    
+  //-----------------------------------------------------------------------------------------------------------
+
+    public JpaCriteriaHelper<T> where( SingularAttribute<T, ?> fieldName, Object value ) {
+        return where(fieldName.getName(), ComparatorOperator.EQUAL, value);
+    }
+
+    public JpaCriteriaHelper<T> where( Collection<SingularAttribute<?, ?>> fieldNames, Object value ) {
+        return where(getNames(fieldNames), ComparatorOperator.EQUAL, value);
+    }
+
+    public JpaCriteriaHelper<T> where( SingularAttribute<T, ?> fieldName, ComparatorOperator comparator, Object value ) {
+        addTowhere(Arrays.asList(fieldName.getName()), comparator, value, null, null);
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> where( Collection<SingularAttribute<?, ?>> fieldNames, ComparatorOperator comparator, Object value ) {
+        addTowhere(getNames(fieldNames), comparator, value, null, null);
+        return this;
+    }
+
+    @SuppressWarnings({ "rawtypes" }) // TODO: tentar resolver este warning
+    public JpaCriteriaHelper<T> where( SingularAttribute<T, ?> fieldName, ComparatorOperator comparator, Comparable valueIni, Comparable valueEnd ) {
+        addTowhere(Arrays.asList(fieldName.getName()), comparator, valueIni, valueEnd, null);
+        return this;
+    }
+
+    @SuppressWarnings({ "rawtypes" }) // TODO: tentar resolver este warning
+    public JpaCriteriaHelper<T> where( Collection<SingularAttribute<?, ?>> fieldNames, ComparatorOperator comparator, Comparable valueIni, Comparable valueEnd ) {
+        wheres.add( new WhereEntry(getNames(fieldNames), comparator, valueIni, valueEnd, LogicalOperator.AND) );
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> and( SingularAttribute<T, ?> fieldName, Object value ) {
+        addTowhere(Arrays.asList(fieldName.getName()), ComparatorOperator.EQUAL, value, null, LogicalOperator.AND);
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> and( Collection<SingularAttribute<?, ?>> fieldNames, Object value ) {
+        addTowhere(getNames(fieldNames), ComparatorOperator.EQUAL, value, null, LogicalOperator.AND);
+        return this;
+    }
+
+    @SuppressWarnings({ "rawtypes" }) // TODO: tentar resolver este warning
+    public JpaCriteriaHelper<T> and( SingularAttribute<T, ?> fieldName, ComparatorOperator comparator, Comparable valueIni, Comparable valueEnd ) {
+        wheres.add( new WhereEntry(Arrays.asList(fieldName.getName()), comparator, valueIni, valueEnd, LogicalOperator.AND) );
+        return this;
+    }
+
+    @SuppressWarnings({ "rawtypes" }) // TODO: tentar resolver este warning
+    public JpaCriteriaHelper<T> and( Collection<SingularAttribute<?, ?>> fieldNames, ComparatorOperator comparator, Comparable valueIni, Comparable valueEnd ) {
+        wheres.add( new WhereEntry(getNames(fieldNames), comparator, valueIni, valueEnd, LogicalOperator.AND) );
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> and( SingularAttribute<T, ?> fieldName, ComparatorOperator comparator, Object value ) {
+        wheres.add( new WhereEntry(Arrays.asList(fieldName.getName()), comparator, value, null, LogicalOperator.AND) );
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> and( Collection<SingularAttribute<?, ?>> fieldNames, ComparatorOperator comparator, Object value ) {
+        wheres.add( new WhereEntry(getNames(fieldNames), comparator, value, null, LogicalOperator.AND) );
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> or( SingularAttribute<T, ?> fieldName, Object value ) {
+        addTowhere(Arrays.asList(fieldName.getName()), ComparatorOperator.EQUAL, value, null, LogicalOperator.OR);
+        return this;
+    }
+
+    @SuppressWarnings({ "rawtypes" }) // TODO: tentar resolver este warning
+    public JpaCriteriaHelper<T> or( SingularAttribute<T, ?> fieldName, ComparatorOperator comparator, Comparable valueIni, Comparable valueEnd ) {
+        wheres.add( new WhereEntry(Arrays.asList(fieldName.getName()), comparator, valueIni, valueEnd, LogicalOperator.OR) );
+        return this;
+    }
+
+    @SuppressWarnings({ "rawtypes" }) // TODO: tentar resolver este warning
+    public JpaCriteriaHelper<T> or( Collection<SingularAttribute<?, ?>> fieldNames, ComparatorOperator comparator, Comparable valueIni, Comparable valueEnd ) {
+        wheres.add( new WhereEntry(getNames(fieldNames), comparator, valueIni, valueEnd, LogicalOperator.OR) );
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> or( SingularAttribute<T, ?> fieldName, ComparatorOperator comparator, Object value ) {
+        wheres.add( new WhereEntry(Arrays.asList(fieldName.getName()), comparator, value, null, LogicalOperator.OR) );
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> or( Collection<SingularAttribute<?, ?>> fieldNames, ComparatorOperator comparator, Object value ) {
+        wheres.add( new WhereEntry(getNames(fieldNames), comparator, value, null, LogicalOperator.OR) );
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> or( Collection<SingularAttribute<?, ?>> fieldNames, Object value ) {
+        wheres.add( new WhereEntry(getNames(fieldNames), ComparatorOperator.EQUAL, value, null, LogicalOperator.OR) );
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> orderBy( SingularAttribute<?, ?> ... fieldNames ) {
+        demandsOperation(SqlOperation.SELECT);
+        orders.add( new OrderEntry(getNames(Arrays.asList(fieldNames)), OrderDirection.ASC) );
+        return this;
+    }
+
+//-----------------------------------------------------------------------------------------------------------   
+    
+    
+    
+    
+    
+    
 
     /**
      * Obtem lista com os resultados
@@ -808,6 +924,12 @@ public class JpaCriteriaHelper<T> {
         if ( ! this.sqlOperation.equals( sqlOperation ) ) {
             throw new RuntimeException("Chamada de método inválida para a operação " + this.sqlOperation.name() + ".");
         }
+    }
+    
+    private List<String> getNames( Collection<SingularAttribute<?, ?>> singularAttributes ) {
+        return singularAttributes.stream()
+                                 .map(SingularAttribute::getName)
+                                 .collect(Collectors.toList());
     }
 
 }
