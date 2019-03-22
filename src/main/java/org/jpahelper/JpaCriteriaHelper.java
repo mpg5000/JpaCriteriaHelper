@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
+
 import javax.persistence.EntityManager;
 import javax.persistence.TypedQuery;
 import javax.persistence.criteria.CriteriaBuilder;
@@ -22,6 +24,7 @@ import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 import javax.persistence.criteria.Selection;
 import javax.persistence.metamodel.ListAttribute;
+import javax.persistence.metamodel.SingularAttribute;
 
 /**
  * Classe utilitária para facilitação das chamadas mais simples à JPA utilizando CriteriaBuilder.
@@ -44,7 +47,7 @@ public class JpaCriteriaHelper<T> {
     private List<WhereEntry> wheres = new ArrayList<>();
 
     private List<OrderEntry> orders = new ArrayList<>();
-    
+
     private Map<List<String>, Object> updates = new HashMap<>();
 
     private Integer pageSize = DEFAULT_PAGE_SIZE;
@@ -58,8 +61,8 @@ public class JpaCriteriaHelper<T> {
     private List<ListFetch<?>> listFetches = new ArrayList<>();
 
     private Map<Path<?>, From<?, ?>> joinsMap = new HashMap<>();
-    
-    private SqlOperation sqlOperation; 
+
+    private SqlOperation sqlOperation;
 
     private class ListFetch<E> {
         private String attribute;
@@ -132,7 +135,7 @@ public class JpaCriteriaHelper<T> {
     public static <X> JpaCriteriaHelper<X> select( EntityManager em, Class<X> entityClazz ) {
         return new JpaCriteriaHelper<>( em, entityClazz, SqlOperation.SELECT );
     }
-    
+
     /**
      * Cria o objeto para update
      * @param em EntityManager
@@ -142,7 +145,7 @@ public class JpaCriteriaHelper<T> {
     public static <X> JpaCriteriaHelper<X> update( EntityManager em, Class<X> entityClazz ) {
         return new JpaCriteriaHelper<>( em, entityClazz, SqlOperation.UPDATE );
     }
-    
+
     /**
      * Atribui valor a um campo (em uma operação de update)
      * @param fieldName Nome da propriedade
@@ -152,7 +155,7 @@ public class JpaCriteriaHelper<T> {
     public JpaCriteriaHelper<T> set( String fieldName, Object value ) {
         return set( Arrays.asList(fieldName), value );
     }
-    
+
     /**
      * Atribui valor a um campo (em uma operação de update)
      * @param fieldNames Nome da propriedade
@@ -226,6 +229,20 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
+     * Inclui uma clausula WHERE de BETWEEN após um operador AND
+     * @param fieldNames Nome da propriedade
+     * @param comparator Comparador BETWEEN (apenas este é aceito para este método)
+     * @param valueIni Valor inicial <b>(necessita implementar {@link Comparable})</b>
+     * @param valueEnd Valor final <b>(necessita implementar {@link Comparable})</b>
+     * @return objeto de consulta
+     */
+    @SuppressWarnings({ "rawtypes" }) // TODO: tentar resolver este warning
+    public JpaCriteriaHelper<T> where( List<String> fieldNames, ComparatorOperator comparator, Comparable valueIni, Comparable valueEnd ) {
+        wheres.add( new WhereEntry(fieldNames, comparator, valueIni, valueEnd, LogicalOperator.AND) );
+        return this;
+    }
+
+    /**
      * Inclui uma clausula WHERE com um operador AND
      * @param fieldName Nome da propriedade
      * @param value Valor
@@ -262,6 +279,20 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
+     * Inclui uma clausula WHERE de BETWEEN após um operador AND
+     * @param fieldNames Nome das propriedades
+     * @param comparator Comparador BETWEEN (apenas este é aceito para este método)
+     * @param valueIni Valor inicial <b>(necessita implementar {@link Comparable})</b>
+     * @param valueEnd Valor final <b>(necessita implementar {@link Comparable})</b>
+     * @return objeto de consulta
+     */
+    @SuppressWarnings({ "rawtypes" }) // TODO: tentar resolver este warning
+    public JpaCriteriaHelper<T> and( List<String> fieldNames, ComparatorOperator comparator, Comparable valueIni, Comparable valueEnd ) {
+        wheres.add( new WhereEntry(fieldNames, comparator, valueIni, valueEnd, LogicalOperator.AND) );
+        return this;
+    }
+
+    /**
      * Inclui uma clausula WHERE após um operador AND
      * @param fieldName Nome da propriedade
      * @param comparator Comparador <b>(Para {@link ComparatorOperator.GREATER_THAN} e {@link ComparatorOperator.GREATER_THAN}
@@ -273,7 +304,7 @@ public class JpaCriteriaHelper<T> {
         wheres.add( new WhereEntry(Arrays.asList(fieldName), comparator, value, null, LogicalOperator.AND) );
         return this;
     }
-    
+
     /**
      * Inclui uma clausula WHERE após um operador AND
      * @param fieldNames Nome das propriedades
@@ -313,6 +344,20 @@ public class JpaCriteriaHelper<T> {
     }
 
     /**
+     * Inclui uma clausula WHERE de BETWEEN após um operador OR
+     * @param fieldNames Nome das propriedades
+     * @param comparator Comparador BETWEEN (apenas este é aceito para este método)
+     * @param valueIni Valor inicial <b>(necessita implementar {@link Comparable})</b>
+     * @param valueEnd Valor final <b>(necessita implementar {@link Comparable})</b>
+     * @return objeto de consulta
+     */
+    @SuppressWarnings({ "rawtypes" }) // TODO: tentar resolver este warning
+    public JpaCriteriaHelper<T> or( List<String> fieldNames, ComparatorOperator comparator, Comparable valueIni, Comparable valueEnd ) {
+        wheres.add( new WhereEntry(fieldNames, comparator, valueIni, valueEnd, LogicalOperator.OR) );
+        return this;
+    }
+
+    /**
      * Inclui uma clausula WHERE após um operador OR
      * @param fieldName Nome da propriedade
      * @param comparator Comparador <b>(Para {@link ComparatorOperator.GREATER_THAN} e {@link ComparatorOperator.GREATER_THAN}
@@ -325,11 +370,25 @@ public class JpaCriteriaHelper<T> {
         return this;
     }
 
+    /**
+     * Inclui uma clausula WHERE após um operador OR
+     * @param fieldNames Nome das propriedades
+     * @param comparator Comparador <b>(Para {@link ComparatorOperator.GREATER_THAN} e {@link ComparatorOperator.GREATER_THAN}
+     * é necessário que valor complemente {@link Comparable})</b>
+     * @param value Valor
+     * @return objeto de consulta
+     */
     public JpaCriteriaHelper<T> or( List<String> fieldNames, ComparatorOperator comparator, Object value ) {
         wheres.add( new WhereEntry(fieldNames, comparator, value, null, LogicalOperator.OR) );
         return this;
     }
 
+    /**
+     * Inclui uma clausula WHERE após um operador OR
+     * @param fieldNames Nome das propriedades
+     * @param value Valor
+     * @return objeto de consulta
+     */
     public JpaCriteriaHelper<T> or( List<String> fieldNames, Object value ) {
         wheres.add( new WhereEntry(fieldNames, ComparatorOperator.EQUAL, value, null, LogicalOperator.OR) );
         return this;
@@ -371,6 +430,120 @@ public class JpaCriteriaHelper<T> {
         orders.get( orders.size() - 1 ).order = OrderDirection.DESC;
         return this;
     }
+    
+    
+    
+    
+    
+  //-----------------------------------------------------------------------------------------------------------
+
+    public JpaCriteriaHelper<T> where( SingularAttribute<T, ?> fieldName, Object value ) {
+        return where(fieldName.getName(), ComparatorOperator.EQUAL, value);
+    }
+
+    public JpaCriteriaHelper<T> where( Collection<SingularAttribute<?, ?>> fieldNames, Object value ) {
+        return where(getNames(fieldNames), ComparatorOperator.EQUAL, value);
+    }
+
+    public JpaCriteriaHelper<T> where( SingularAttribute<T, ?> fieldName, ComparatorOperator comparator, Object value ) {
+        addTowhere(Arrays.asList(fieldName.getName()), comparator, value, null, null);
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> where( Collection<SingularAttribute<?, ?>> fieldNames, ComparatorOperator comparator, Object value ) {
+        addTowhere(getNames(fieldNames), comparator, value, null, null);
+        return this;
+    }
+
+    @SuppressWarnings({ "rawtypes" }) // TODO: tentar resolver este warning
+    public JpaCriteriaHelper<T> where( SingularAttribute<T, ?> fieldName, ComparatorOperator comparator, Comparable valueIni, Comparable valueEnd ) {
+        addTowhere(Arrays.asList(fieldName.getName()), comparator, valueIni, valueEnd, null);
+        return this;
+    }
+
+    @SuppressWarnings({ "rawtypes" }) // TODO: tentar resolver este warning
+    public JpaCriteriaHelper<T> where( Collection<SingularAttribute<?, ?>> fieldNames, ComparatorOperator comparator, Comparable valueIni, Comparable valueEnd ) {
+        wheres.add( new WhereEntry(getNames(fieldNames), comparator, valueIni, valueEnd, LogicalOperator.AND) );
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> and( SingularAttribute<T, ?> fieldName, Object value ) {
+        addTowhere(Arrays.asList(fieldName.getName()), ComparatorOperator.EQUAL, value, null, LogicalOperator.AND);
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> and( Collection<SingularAttribute<?, ?>> fieldNames, Object value ) {
+        addTowhere(getNames(fieldNames), ComparatorOperator.EQUAL, value, null, LogicalOperator.AND);
+        return this;
+    }
+
+    @SuppressWarnings({ "rawtypes" }) // TODO: tentar resolver este warning
+    public JpaCriteriaHelper<T> and( SingularAttribute<T, ?> fieldName, ComparatorOperator comparator, Comparable valueIni, Comparable valueEnd ) {
+        wheres.add( new WhereEntry(Arrays.asList(fieldName.getName()), comparator, valueIni, valueEnd, LogicalOperator.AND) );
+        return this;
+    }
+
+    @SuppressWarnings({ "rawtypes" }) // TODO: tentar resolver este warning
+    public JpaCriteriaHelper<T> and( Collection<SingularAttribute<?, ?>> fieldNames, ComparatorOperator comparator, Comparable valueIni, Comparable valueEnd ) {
+        wheres.add( new WhereEntry(getNames(fieldNames), comparator, valueIni, valueEnd, LogicalOperator.AND) );
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> and( SingularAttribute<T, ?> fieldName, ComparatorOperator comparator, Object value ) {
+        wheres.add( new WhereEntry(Arrays.asList(fieldName.getName()), comparator, value, null, LogicalOperator.AND) );
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> and( Collection<SingularAttribute<?, ?>> fieldNames, ComparatorOperator comparator, Object value ) {
+        wheres.add( new WhereEntry(getNames(fieldNames), comparator, value, null, LogicalOperator.AND) );
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> or( SingularAttribute<T, ?> fieldName, Object value ) {
+        addTowhere(Arrays.asList(fieldName.getName()), ComparatorOperator.EQUAL, value, null, LogicalOperator.OR);
+        return this;
+    }
+
+    @SuppressWarnings({ "rawtypes" }) // TODO: tentar resolver este warning
+    public JpaCriteriaHelper<T> or( SingularAttribute<T, ?> fieldName, ComparatorOperator comparator, Comparable valueIni, Comparable valueEnd ) {
+        wheres.add( new WhereEntry(Arrays.asList(fieldName.getName()), comparator, valueIni, valueEnd, LogicalOperator.OR) );
+        return this;
+    }
+
+    @SuppressWarnings({ "rawtypes" }) // TODO: tentar resolver este warning
+    public JpaCriteriaHelper<T> or( Collection<SingularAttribute<?, ?>> fieldNames, ComparatorOperator comparator, Comparable valueIni, Comparable valueEnd ) {
+        wheres.add( new WhereEntry(getNames(fieldNames), comparator, valueIni, valueEnd, LogicalOperator.OR) );
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> or( SingularAttribute<T, ?> fieldName, ComparatorOperator comparator, Object value ) {
+        wheres.add( new WhereEntry(Arrays.asList(fieldName.getName()), comparator, value, null, LogicalOperator.OR) );
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> or( Collection<SingularAttribute<?, ?>> fieldNames, ComparatorOperator comparator, Object value ) {
+        wheres.add( new WhereEntry(getNames(fieldNames), comparator, value, null, LogicalOperator.OR) );
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> or( Collection<SingularAttribute<?, ?>> fieldNames, Object value ) {
+        wheres.add( new WhereEntry(getNames(fieldNames), ComparatorOperator.EQUAL, value, null, LogicalOperator.OR) );
+        return this;
+    }
+
+    public JpaCriteriaHelper<T> orderBy( SingularAttribute<?, ?> ... fieldNames ) {
+        demandsOperation(SqlOperation.SELECT);
+        orders.add( new OrderEntry(getNames(Arrays.asList(fieldNames)), OrderDirection.ASC) );
+        return this;
+    }
+
+//-----------------------------------------------------------------------------------------------------------   
+    
+    
+    
+    
+    
+    
 
     /**
      * Obtem lista com os resultados
@@ -538,7 +711,7 @@ public class JpaCriteriaHelper<T> {
 
         return em.createQuery( criteriaQuery ).getSingleResult();
     }
-    
+
     /**
      * Efetua operação de UPDATE
      * @return
@@ -548,20 +721,20 @@ public class JpaCriteriaHelper<T> {
         demandsOperation(SqlOperation.UPDATE);
         CriteriaUpdate<T> criteriaUpdate = criteriaBuilder.createCriteriaUpdate(entityClass);
         Root<T> rootUpdate               = criteriaUpdate.from(entityClass);
-        
+
         if ( ! wheres.isEmpty() ) {
             criteriaUpdate.where( getPredicates(rootUpdate, wheres) );
         }
-        
+
         if ( updates.isEmpty() ) {
             throw new RuntimeException("Nenhum campo de update foi informado.");
         }
-        
+
         for (Entry<List<String>, Object> updateEntry : updates.entrySet()) {
             Path path = getPath(updateEntry.getKey(), rootUpdate);
             criteriaUpdate.set(path, updateEntry.getValue());
         }
-        
+
         return em.createQuery( criteriaUpdate ).executeUpdate();
     }
 
@@ -692,7 +865,7 @@ public class JpaCriteriaHelper<T> {
 
         return this;
     }
-    
+
     // TODO: necessário falar com Pietro ??
     public static <T> JpaCriteriaHelper<T> create(EntityManager em, Class<T> entityClazz) {
         return new JpaCriteriaHelper<>( em, entityClazz, SqlOperation.SELECT );
@@ -742,7 +915,7 @@ public class JpaCriteriaHelper<T> {
             tq.setFirstResult((pageNumber - 1) * pageSize).setMaxResults(pageSize);
         }
     }
-    
+
     /**
      * Confere se a operação atual do objeto é a operação esperada. Lança uma exceção se a operação atual não for igual à esperada.
      * @param sqlOperation Operação esperada
@@ -751,6 +924,12 @@ public class JpaCriteriaHelper<T> {
         if ( ! this.sqlOperation.equals( sqlOperation ) ) {
             throw new RuntimeException("Chamada de método inválida para a operação " + this.sqlOperation.name() + ".");
         }
+    }
+    
+    private List<String> getNames( Collection<SingularAttribute<?, ?>> singularAttributes ) {
+        return singularAttributes.stream()
+                                 .map(SingularAttribute::getName)
+                                 .collect(Collectors.toList());
     }
 
 }
