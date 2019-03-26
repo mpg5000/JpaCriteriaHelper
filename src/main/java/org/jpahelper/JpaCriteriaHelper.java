@@ -711,6 +711,32 @@ public class JpaCriteriaHelper<T> {
 
         return em.createQuery( criteriaQuery ).getSingleResult();
     }
+    
+    /**
+     * Efetua a soma do campo informado dos registros da consulta 
+     * @return resultado da soma do campo informa dos registros retornados pela consulta
+     */
+    public <S extends Number> S sum( SingularAttribute<T, S> fieldToSum, Class<S> resultClass ) {
+        return sum(fieldToSum.getName(), resultClass);
+    }
+    
+    /**
+     * Efetua a soma do campo informado dos registros da consulta 
+     * @return resultado da soma do campo informa dos registros retornados pela consulta
+     */
+    public <S extends Number> S sum( String fieldToSum, Class<S> resultClass ) {
+        demandsOperation(SqlOperation.SELECT);
+        CriteriaQuery<S> criteriaQuery = criteriaBuilder.createQuery(resultClass);
+        Root<T>              rootCount = criteriaQuery.from(entityClass);
+        
+        criteriaQuery.select( criteriaBuilder.sum( rootCount.get(fieldToSum) ) );
+        
+        if ( ! wheres.isEmpty() ) {
+            criteriaQuery.where( getPredicates(rootCount, wheres) );
+        }
+        
+        return em.createQuery( criteriaQuery ).getSingleResult();
+    }
 
     /**
      * Efetua operação de UPDATE
