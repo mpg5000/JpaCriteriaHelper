@@ -430,11 +430,11 @@ public class JpaCriteriaHelper<T> {
         orders.get( orders.size() - 1 ).order = OrderDirection.DESC;
         return this;
     }
-    
-    
-    
-    
-    
+
+
+
+
+
   //-----------------------------------------------------------------------------------------------------------
 
     public JpaCriteriaHelper<T> where( SingularAttribute<T, ?> fieldName, Object value ) {
@@ -537,13 +537,13 @@ public class JpaCriteriaHelper<T> {
         return this;
     }
 
-//-----------------------------------------------------------------------------------------------------------   
-    
-    
-    
-    
-    
-    
+//-----------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
 
     /**
      * Obtem lista com os resultados
@@ -892,6 +892,16 @@ public class JpaCriteriaHelper<T> {
         return this;
     }
 
+    public JpaCriteriaHelper<T> pagination(PaginationI paginationI) {
+        if (paginationI.getPageNumber() != null
+                && paginationI.getPageSize() != null) {
+            this.pageSize = paginationI.getPageSize();
+            this.pageNumber = paginationI.getPageNumber();
+        }
+
+        return this;
+    }
+
     // TODO: necessário falar com Pietro ??
     public static <T> JpaCriteriaHelper<T> create(EntityManager em, Class<T> entityClazz) {
         return new JpaCriteriaHelper<>( em, entityClazz, SqlOperation.SELECT );
@@ -951,7 +961,7 @@ public class JpaCriteriaHelper<T> {
             throw new RuntimeException("Chamada de método inválida para a operação " + this.sqlOperation.name() + ".");
         }
     }
-    
+
     private List<String> getNames( Collection<SingularAttribute<?, ?>> singularAttributes ) {
         return singularAttributes.stream()
                                  .map(SingularAttribute::getName)
