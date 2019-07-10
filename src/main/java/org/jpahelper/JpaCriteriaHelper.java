@@ -645,6 +645,19 @@ public class JpaCriteriaHelper<T> {
         this.pageNumber = pageNumber;
         return this;
     }
+    
+    /**
+     * Define o tipo de lock de banco utilizada na operação. Ver
+     * {@link LockModeType}
+     *
+     * @param lockModeType
+     *            (ver {@link LockModeType}
+     * @return objeto de consulta
+     */
+    public JpaCriteriaHelper<T> setLockModeType(LockModeType lockModeType) {
+        this.lockModeType = lockModeType;
+        return this;
+    }    
 
     /**
      * Obtem apenas o primeiro registro do resultado da consulta
