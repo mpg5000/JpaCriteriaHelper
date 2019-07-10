@@ -12,6 +12,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import javax.persistence.EntityManager;
+import javax.persistence.LockModeType;
+import javax.persistence.Query;
 import javax.persistence.TypedQuery;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaDelete;
@@ -63,6 +65,8 @@ public class JpaCriteriaHelper<T> {
     private Map<Path<?>, From<?, ?>> joinsMap = new HashMap<>();
 
     private SqlOperation sqlOperation;
+    
+    private LockModeType lockModeType;
 
     private class ListFetch<E> {
         private String attribute;
@@ -560,6 +564,7 @@ public class JpaCriteriaHelper<T> {
 
         TypedQuery<T> typedQuery = em.createQuery(criteriaQuery);
 
+        setupLockModeType(typedQuery);
         setupPagination(typedQuery);
 
         return typedQuery.getResultList();
@@ -681,8 +686,11 @@ public class JpaCriteriaHelper<T> {
         criteriaQuery.select(root);
 
         setupQuery(criteriaQuery, root);
+        TypedQuery<T> query = em.createQuery(criteriaQuery);
 
-        return em.createQuery(criteriaQuery).getSingleResult();
+        setupLockModeType(query);
+
+        return query.getSingleResult();        
     }
 
     /**
@@ -709,7 +717,11 @@ public class JpaCriteriaHelper<T> {
             criteriaQuery.where( getPredicates(rootCount, wheres) );
         }
 
-        return em.createQuery( criteriaQuery ).getSingleResult();
+        TypedQuery<Long> query = em.createQuery(criteriaQuery);
+
+        setupLockModeType(query);
+
+        return query.getSingleResult();        
     }
     
     /**
@@ -761,8 +773,18 @@ public class JpaCriteriaHelper<T> {
             criteriaUpdate.set(path, updateEntry.getValue());
         }
 
-        return em.createQuery( criteriaUpdate ).executeUpdate();
+        Query query = em.createQuery(criteriaUpdate);
+
+        setupLockModeType(query);
+
+        return query.executeUpdate();
     }
+    
+    private void setupLockModeType(Query query) {
+        if (lockModeType != null) {
+            query.setLockMode(lockModeType);
+        }
+    }    
 
     private void addTowhere( List<String> fieldNames, ComparatorOperator comparator, Object valueIni, Object valueEnd, LogicalOperator logicalOperator ) {
         if ( ( comparator.equals(ComparatorOperator.GREATER_THAN) || comparator.equals(ComparatorOperator.LESS_THAN) )
