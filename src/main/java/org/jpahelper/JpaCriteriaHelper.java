@@ -415,7 +415,7 @@ public class JpaCriteriaHelper<T> {
      */
     public JpaCriteriaHelper<T> asc() {
         demandsOperation(SqlOperation.SELECT);
-        if ( ! orders.isEmpty() ) {
+        if ( orders.isEmpty() ) {
             throw new RuntimeException("Nenhum cláusula ORDER BY definida");
         }
         orders.get( orders.size() - 1 ).order = OrderDirection.ASC;
